@@ -35,11 +35,11 @@ namespace NinjaTrader.NinjaScript.Strategies
     {
         private Account masterAccount;
         private List<Account> slaveAccounts = new List<Account>();
-		
-		// MAIN ACCOUNT
+
+        // MAIN ACCOUNT
         private string masterAccountName = "Earn2Trade"; 
-		
-		// SLAVE ACCOUNTS
+        
+        // SLAVE ACCOUNTS
         private string[] slaveAccountNames = { "Bulenox" };
 
         protected override void OnStateChange()
@@ -50,9 +50,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Name = "ZETECReplicator";
                 Calculate = Calculate.OnPriceChange;
                 IsOverlay = true;
-                IsRealtimeErrorHandlingIgnore = true; 
             }
-            else if (State == State.Startup)
+            else if (State == State.DataLoaded)
             {
                 lock (Account.All)
                 {
@@ -66,20 +65,23 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                if (masterAccount == null)
-                {
-                    Print("Master Account not found.");
-                }
-                else
+                if (masterAccount != null)
                 {
                     masterAccount.OrderUpdate += OnMasterOrderUpdate;
+                }
+            }
+            else if (State == State.Terminated)
+            {
+                if (masterAccount != null)
+                {
+                    masterAccount.OrderUpdate -= OnMasterOrderUpdate;
                 }
             }
         }
 
         private void OnMasterOrderUpdate(object sender, OrderEventArgs e)
         {
-            if (e.Order.Name.StartsWith("ZETEC_")) return;
+            if (e.Order == null || e.Order.Name.StartsWith("ZETEC_")) return;
 
             if (e.OrderState == OrderState.Submitted)
             {
@@ -87,7 +89,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     acc.CreateOrder(e.Order.Instrument, e.Order.OrderAction, e.Order.OrderType, 
                         e.Order.TimeInForce, e.Order.Quantity, e.Order.LimitPrice, e.Order.StopPrice, 
-                        "", "ZETEC_" + e.Order.Name, null);
+                        string.Empty, "ZETEC_" + e.Order.Name, null);
                 }
             }
 
@@ -97,24 +99,19 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     lock (acc.Orders)
                     {
-                        var targetOrder = acc.Orders.FirstOrDefault(o => 
-                            o.Instrument == e.Order.Instrument && 
+                        Order targetOrder = acc.Orders.FirstOrDefault(o => 
+                            o != null &&
+                            o.Instrument.FullName == e.Order.Instrument.FullName && 
                             o.Name == "ZETEC_" + e.Order.Name &&
                             (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted));
 
                         if (targetOrder != null)
                         {
-                            acc.CancelOrder(targetOrder);
+                            acc.Cancel(new[] { targetOrder });
                         }
                     }
                 }
             }
-        }
-
-        protected override void OnTerminated()
-        {
-            if (masterAccount != null)
-                masterAccount.OrderUpdate -= OnMasterOrderUpdate;
         }
     }
 }
