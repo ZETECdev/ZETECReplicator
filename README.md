@@ -113,7 +113,7 @@ private string[] slaveAccountNames = { "Bulenox" };
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-Copyright (c) 2025 ZETECdev
+Copyright (c) 2026 ZETECdev
 
 ## Disclaimer
 
